@@ -18,9 +18,6 @@ _not_used:              .word   _not_used
 _irq:                   .word   _irq
 _fiq:                   .word   _fiq
 
-
-
-
 reset:
     /* 设置为SVC MODE */
     mrs r0, cpsr        @ read CPSR and put to r0
@@ -32,8 +29,9 @@ reset:
     ldr r0, =0x0
     mcr p15, 0, r0, c12, c0, 0      @协处理器 VBAR, 不是 ARM 的指令
 
-    /* INIT */
-
+    /* INIT SVC 的栈 */
+    ldr r1, stacktop
+    MOV sp, r1
 
     /* 设置为USER MODE */
     mrs r0, cpsr        @ read CPSR and put to r0
@@ -41,12 +39,15 @@ reset:
     orr r0, r0, #0x10   @ 置位: set the bits to 1   @ 0001 0000
     msr cpsr, r0        @ 将修改好的值写回到 CPSR 模式
 
+    /* INIT USER 的栈 */
+    SUB	sp,	r1, #128
+
     BL _main
 _main:
     MOV r1, #3
     MOV r2, #4
     BL  add_usr
-    MOV r3, #1
+    @ MOV r3, #1 @ 方便调试
     NOP
 
 loop:
@@ -55,7 +56,7 @@ loop:
 add_usr:
     STMFD   sp!, {lr}               @ backup, 将 * 压栈
     SWI     0                       @ 产生软中断
-    MOV     r3, #2
+    MOV     r3, #2                  @ 便于调试
     LDMFD sp!, {pc}                 @ 出栈备份的数据 将 lr 直接出栈给pc
 
 swi_handler:
@@ -69,3 +70,7 @@ add_sys:
     STMFD sp!, {lr}                 @ backup, 将 * 压栈
     ADD r0, r1, r2
     LDMFD sp!, {pc}
+
+    /* 开辟栈空间 */
+stack:          .space               @ stack  = malloc(64*4)
+stacktop:       .word   stack+(64*4)
